@@ -39,6 +39,11 @@ if(PYTHONINTERP_FOUND)
             PROPERTY LABELS "NoMemoryCheck"
         )
 
+        set_property(
+            TEST system.tools.fastdds.${TEST}
+            APPEND PROPERTY ENVIRONMENT "FAST_DISCOVERY_SERVER_TOOL=$<TARGET_FILE:fast-discovery-server>"
+        )
+
     endforeach()
 
 endif()

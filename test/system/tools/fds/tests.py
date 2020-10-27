@@ -39,9 +39,9 @@ from pathlib import Path
     
 def test_fast_discovery_closure(fast_discovery_tool):
     """Test that discovery command closes correctly."""
-    command = [fast_discovery_tool] + '-i 0'.split(" ")
+    command = [fast_discovery_tool, "-i", "0"]
 
-    #print ("Executing command: " + str(command))
+    print ("Executing command: " + str(command))
 
     # this subprocess cannot be executed in shell=True or using bash
     #  because a background script will not broadcast the signals
@@ -128,6 +128,9 @@ def creation_date(path_to_file):
 
 if __name__ == '__main__':
 
+    print(sys.argv)
+    print(os.getcwd())
+
     parser = argparse.ArgumentParser(
             usage='test.py <install_path> <test_name>',
         )
@@ -143,7 +146,10 @@ if __name__ == '__main__':
     
     tool_path = get_path(Path(args.install_path))
 
-    fast_discovery_tool = get_tool(tool_path, 'fast-discovery-server')
+    # fast_discovery_tool = get_tool(tool_path, 'fast-discovery-server')
+    # Environment variables
+    fast_discovery_tool = os.environ.get('FAST_DISCOVERY_SERVER_TOOL')
+    
 
     # Tests dictionary
     tests = {
