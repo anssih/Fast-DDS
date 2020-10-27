@@ -29,7 +29,6 @@ if(PYTHONINTERP_FOUND)
                 NAME system.tools.fastdds.${TEST}
                 COMMAND ${PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests.py
-                ${CMAKE_INSTALL_PREFIX}
                 ${TEST}
             )
 

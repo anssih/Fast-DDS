@@ -72,9 +72,8 @@ def test_fast_discovery_closure(fast_discovery_tool):
         print('test_fast_discovery_closure FAILED')
         sys.exit(1)
 
-
+"""
 def get_path(install_path):
-    """
     Adjust the install path when --merge-install has been used.
 
     param install_path Path:
@@ -84,7 +83,6 @@ def get_path(install_path):
         Adjusted path to the installation path where fastdds tool
         is installed
 
-    """
 
     # TODO change to build_path
     build_tool_path_from_install = "../build/fastrtps/tools/fds"
@@ -124,31 +122,32 @@ def creation_date(path_to_file):
             # We're probably on Linux. No easy way to get creation dates here,
             # so we'll settle for when its content was last modified.
             return stat.st_mtime
-
+"""
 
 if __name__ == '__main__':
 
-    print(sys.argv)
-    print(os.getcwd())
-
     parser = argparse.ArgumentParser(
-            usage='test.py <install_path> <test_name>',
+            usage='test.py <test_name>',
         )
 
     # TODO change install path for build_path - in CMakeLists.txt change the var env
-    parser.add_argument('install_path',
-                        help='FastDDS executables install path')
-
     parser.add_argument('test_name',
                         help='Test to run')
 
     args = parser.parse_args()
     
-    tool_path = get_path(Path(args.install_path))
-
     # fast_discovery_tool = get_tool(tool_path, 'fast-discovery-server')
     # Environment variables
     fast_discovery_tool = os.environ.get('FAST_DISCOVERY_SERVER_TOOL')
+
+    # Check that executable exists
+    if fast_discovery_tool:
+        if not os.path.isfile(fast_discovery_tool):
+            print('FAST_DISCOVERY_SERVER_TOOL does NOT specify a file')
+            exit(1)  # Exit with error
+    else:
+        print('FAST_DISCOVERY_SERVER_TOOL is NOT set')
+        exit(1)  # Exit with error
     
 
     # Tests dictionary
