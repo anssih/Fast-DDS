@@ -772,8 +772,6 @@ bool PDPServer2::server_update_routine()
 
         logInfo(RTPS_PDP_SERVER, "-------------------- Server routine end --------------------");
         logInfo(RTPS_PDP_SERVER, "");
-
-        logInfo(RTPS_PDP_SERVER, "PDP history size " << mp_PDPWriterHistory->getHistorySize());
     }
     // If the data queue is not empty re-start the routine.
     // A non-empty queue means that the server has received a change while it is running the processing routine.
@@ -791,7 +789,7 @@ bool PDPServer2::server_update_routine()
         process_discovery_database_backup_();
     }
 
-    return pending_work;
+    return pending_work && discovery_db_.is_enabled();
 }
 
 bool PDPServer2::process_writers_acknowledgements()
@@ -1212,7 +1210,8 @@ bool PDPServer2::pending_ack()
             mp_PDPWriterHistory->getHistorySize() > 1 ||
             edp->publications_writer_.second->getHistorySize() > 0 ||
             edp->subscriptions_writer_.second->getHistorySize() > 0);
-    logInfo(RTPS_PDP_SERVER, "Is server acked by all? " << discovery_db_.server_acked_by_all());        
+    logInfo(RTPS_PDP_SERVER, "Is server acked by all? " << discovery_db_.server_acked_by_all());
+    logInfo(RTPS_PDP_SERVER, "PDP history size " << mp_PDPWriterHistory->getHistorySize());     
     logInfo(RTPS_PDP_SERVER, "Are there pending changes? " << ret);
     return ret;
 }
@@ -1285,6 +1284,8 @@ void PDPServer2::send_announcement(
 
 void PDPServer2::process_discovery_database_backup_() const
 {
+    logInfo(RTPS_PDP_SERVER, "Dump DDB in json backup");
+
     std::ofstream myfile;
     myfile.open (get_ddb_persistence_file_name(), std::ios_base::out);
     // set j with the json from database dump
@@ -1358,7 +1359,8 @@ bool PDPServer2::process_discovery_database_restore_()
 
             // call listener to create proxy info for other entities different than server
             if (change_aux->write_params.sample_identity().writer_guid().guidPrefix !=
-                    mp_PDPWriter->getGuid().guidPrefix)
+                    mp_PDPWriter->getGuid().guidPrefix
+                    && change_aux->kind == fastrtps::rtps::ALIVE)
             {
                 mp_listener->onNewCacheChangeAdded(mp_PDPReader, change_aux);
             }
@@ -1398,7 +1400,8 @@ bool PDPServer2::process_discovery_database_restore_()
             
             // call listener to create proxy info for other entities different than server
             if (change_aux->write_params.sample_identity().writer_guid().guidPrefix !=
-                    mp_PDPWriter->getGuid().guidPrefix)
+                    mp_PDPWriter->getGuid().guidPrefix
+                    && change_aux->kind == fastrtps::rtps::ALIVE)
             {
                 edp_pub_listener->onNewCacheChangeAdded(edp->publications_reader_.first, change_aux);
             }
@@ -1438,7 +1441,8 @@ bool PDPServer2::process_discovery_database_restore_()
 
             // call listener to create proxy info for other entities different than server
             if (change_aux->write_params.sample_identity().writer_guid().guidPrefix !=
-                    mp_PDPWriter->getGuid().guidPrefix)
+                    mp_PDPWriter->getGuid().guidPrefix
+                    && change_aux->kind == fastrtps::rtps::ALIVE)
             {
                 edp_sub_listener->onNewCacheChangeAdded(edp->subscriptions_reader_.first, change_aux);
             }
@@ -1453,6 +1457,8 @@ bool PDPServer2::process_discovery_database_restore_()
         logError(DISCOVERY_DATABASE, "BACKUP CORRUPTED");
         return false;
     }
+
+    // getRTPSParticipant()->enableReader(mp_PDPReader);
 
     return true;
 }

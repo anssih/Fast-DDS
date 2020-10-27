@@ -2144,9 +2144,12 @@ void DiscoveryDataBase::to_json(nlohmann::json& j) const
     }
     while(pit != participants_.end())
     {
-        nlohmann::json j_part;
-        pit->second.to_json(j_part);
-        j["participants"][ddb::object_to_string(pit->first)] = j_part;
+        if (pit->first != server_guid_prefix_)
+        {
+            nlohmann::json j_part;
+            pit->second.to_json(j_part);
+            j["participants"][ddb::object_to_string(pit->first)] = j_part;
+        }
         ++pit;
     }
 
@@ -2184,7 +2187,7 @@ void DiscoveryDataBase::to_json(nlohmann::json& j) const
 
 bool DiscoveryDataBase::from_json(
         nlohmann::json& j,
-        std::map<eprosima::fastrtps::rtps::InstanceHandle_t, fastrtps::rtps::CacheChange_t*> changes_map)
+        std::map<eprosima::fastrtps::rtps::InstanceHandle_t, fastrtps::rtps::CacheChange_t*>& changes_map)
 {   
     // This function will parse each attribute in json backup, casting it to istringstream
     // (std::istringstream) j[""] >> obj;
@@ -2242,6 +2245,11 @@ bool DiscoveryDataBase::from_json(
             participants_.insert(std::make_pair(prefix_aux, dpi));
 
             logInfo(DISCOVERY_DATABASE, "Participant " << prefix_aux << " created");
+
+            if(change->kind != fastrtps::rtps::ALIVE)
+            {
+                disposals_.push_back(change);
+            }
         }
 
         // Writers
@@ -2292,6 +2300,11 @@ bool DiscoveryDataBase::from_json(
             }
 
             logInfo(DISCOVERY_DATABASE, "Writer " << guid_aux << " created");
+
+            if(change->kind != fastrtps::rtps::ALIVE)
+            {
+                disposals_.push_back(change);
+            }
         }
 
         // Readers
@@ -2340,6 +2353,11 @@ bool DiscoveryDataBase::from_json(
                 throw;
             }
             logInfo(DISCOVERY_DATABASE, "Reader " << guid_aux << " created");
+
+            if(change->kind != fastrtps::rtps::ALIVE)
+            {
+                disposals_.push_back(change);
+            }
         }
     }
     catch (std::ios_base::failure&)
