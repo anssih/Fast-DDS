@@ -66,8 +66,22 @@ std::vector<fastrtps::rtps::CacheChange_t*> DiscoveryDataBase::clear()
 
     std::unique_lock<std::recursive_mutex> lock(mutex_);
 
-    /* Clear receive queues */
-    pdp_data_queue_.Clear();
+    /* Clear receive queues. Set changes inside to release */
+    while (!pdp_data_queue_.Empty())
+    {
+        DiscoveryPDPDataQueueInfo data_queue_info = pdp_data_queue_.Front();
+        changes_to_release_.push_back(data_queue_info.change());
+        pdp_data_queue_.Pop();
+    }
+    pdp_data_queue_.Clear(
+
+    );
+    while (!edp_data_queue_.Empty())
+    {
+        DiscoveryEDPDataQueueInfo data_queue_info = edp_data_queue_.Front();
+        changes_to_release_.push_back(data_queue_info.change());
+        edp_data_queue_.Pop();
+    }
     edp_data_queue_.Clear();
 
     /* Clear by_topic collections */
@@ -2181,7 +2195,10 @@ bool DiscoveryDataBase::from_json(
     // auxiliars to deserialize and set
     fastrtps::rtps::InstanceHandle_t instance_handle_aux;
     fastrtps::rtps::GuidPrefix_t prefix_aux;
+    fastrtps::rtps::GuidPrefix_t prefix_aux_ack;
     fastrtps::rtps::GUID_t guid_aux;
+
+    logInfo(DISCOVERY_DATABASE, "Raising DDB from json Backup");
 
     try
     {
@@ -2216,13 +2233,15 @@ bool DiscoveryDataBase::from_json(
             for (auto it_ack = it.value()["ack_status"].begin(); it_ack != it.value()["ack_status"].end(); ++it_ack)
             {
                 // Populate GuidPrefix_t
-                (std::istringstream) it_ack.key() >> prefix_aux;
+                (std::istringstream) it_ack.key() >> prefix_aux_ack;
                 
-                dpi.add_or_update_ack_participant(prefix_aux, it_ack.value().get<bool>());
+                dpi.add_or_update_ack_participant(prefix_aux_ack, it_ack.value().get<bool>());
             }
 
             // Add Participant
             participants_.insert(std::make_pair(prefix_aux, dpi));
+
+            logInfo(DISCOVERY_DATABASE, "Participant " << prefix_aux << " created");
         }
 
         // Writers
@@ -2246,9 +2265,9 @@ bool DiscoveryDataBase::from_json(
             for (auto it_ack = it.value()["ack_status"].begin(); it_ack != it.value()["ack_status"].end(); ++it_ack)
             {
                 // Populate GuidPrefix_t
-                (std::istringstream) it_ack.key() >> prefix_aux;
+                (std::istringstream) it_ack.key() >> prefix_aux_ack;
                 
-                dei.add_or_update_ack_participant(prefix_aux, it_ack.value().get<bool>());
+                dei.add_or_update_ack_participant(prefix_aux_ack, it_ack.value().get<bool>());
             }
 
             // Add Participant
@@ -2268,8 +2287,11 @@ bool DiscoveryDataBase::from_json(
             else
             {
                 // Endpoint without participant, corrupted DDB
+                logError(DISCOVERY_DATABASE, "Writer " << guid_aux << " without participant");
                 throw;
             }
+
+            logInfo(DISCOVERY_DATABASE, "Writer " << guid_aux << " created");
         }
 
         // Readers
@@ -2293,9 +2315,9 @@ bool DiscoveryDataBase::from_json(
             for (auto it_ack = it.value()["ack_status"].begin(); it_ack != it.value()["ack_status"].end(); ++it_ack)
             {
                 // Populate GuidPrefix_t
-                (std::istringstream) it_ack.key() >> prefix_aux;
+                (std::istringstream) it_ack.key() >> prefix_aux_ack;
                 
-                dei.add_or_update_ack_participant(prefix_aux, it_ack.value().get<bool>());
+                dei.add_or_update_ack_participant(prefix_aux_ack, it_ack.value().get<bool>());
             }            
 
             // Add Participant
@@ -2317,6 +2339,7 @@ bool DiscoveryDataBase::from_json(
                 // Endpoint without participant, corrupted DDB
                 throw;
             }
+            logInfo(DISCOVERY_DATABASE, "Reader " << guid_aux << " created");
         }
     }
     catch (std::ios_base::failure&)

@@ -103,7 +103,10 @@ bool PDPServer2::init(
     if (_durability == TRANSIENT)
     {
         // if the DS is BACKUP, try to restore DDB from file
-        process_discovery_database_restore_();
+        if (process_discovery_database_restore_())
+        {
+            logInfo(DISCOVERY_DATABASE, "DiscoveryDataBase restored correctly");
+        }
     }
 
     // allows the ddb to analyze new messages from this point 
@@ -774,6 +777,7 @@ bool PDPServer2::server_update_routine()
     }
     // If the data queue is not empty re-start the routine.
     // A non-empty queue means that the server has received a change while it is running the processing routine.
+    // If not considering disabled and there are changes in queue when disable, it will get in an infinite loop
     while (!discovery_db_.data_queue_empty() && discovery_db_.is_enabled());
 
     // Must restart the routin after the period time
@@ -782,7 +786,7 @@ bool PDPServer2::server_update_routine()
     // This only will be called when:
     //  there are not new data in queue
     //  there has been any modification in the DDB (if not, this routine is not called)
-    if (_durability == TRANSIENT)
+    if (_durability == TRANSIENT && discovery_db_.is_enabled())
     {
         process_discovery_database_backup_();
     }
@@ -1208,9 +1212,7 @@ bool PDPServer2::pending_ack()
             mp_PDPWriterHistory->getHistorySize() > 1 ||
             edp->publications_writer_.second->getHistorySize() > 0 ||
             edp->subscriptions_writer_.second->getHistorySize() > 0);
-    
-    logInfo(RTPS_PDP_SERVER, "PDP writer history length " << mp_PDPWriterHistory->getHistorySize());     
-    logInfo(RTPS_PDP_SERVER, "is server " << mp_PDPWriter->getGuid() << " acked by all? " << discovery_db_.server_acked_by_all());
+    logInfo(RTPS_PDP_SERVER, "Is server acked by all? " << discovery_db_.server_acked_by_all());        
     logInfo(RTPS_PDP_SERVER, "Are there pending changes? " << ret);
     return ret;
 }
@@ -1309,6 +1311,8 @@ bool PDPServer2::process_discovery_database_restore_()
         return false;
     }    
 
+    logInfo(RTPS_PDP_SERVER, "Restoring DiscoveryDataBase from backup");
+
     // load every change and create it from its respective history 
     EDPServer2* edp = static_cast<EDPServer2*>(mp_EDP);
     EDPServerPUBListener2* edp_pub_listener = reinterpret_cast<EDPServerPUBListener2*>(edp->publications_listener_);
@@ -1352,8 +1356,12 @@ bool PDPServer2::process_discovery_database_restore_()
             changes_map.insert(
                     std::make_pair(change_aux->instanceHandle, change_aux));
 
-            // call listener to create proxy info
-            mp_listener->onNewCacheChangeAdded(mp_PDPReader, change_aux);
+            // call listener to create proxy info for other entities different than server
+            if (change_aux->write_params.sample_identity().writer_guid().guidPrefix !=
+                    mp_PDPWriter->getGuid().guidPrefix)
+            {
+                mp_listener->onNewCacheChangeAdded(mp_PDPReader, change_aux);
+            }
         }
 
         // Create every writer change. If it is external creates it from Reader, 
@@ -1388,8 +1396,12 @@ bool PDPServer2::process_discovery_database_restore_()
             changes_map.insert(
                     std::make_pair(change_aux->instanceHandle, change_aux));
             
-            // call listener to create proxy info
-            edp_pub_listener->onNewCacheChangeAdded(edp->publications_reader_.first, change_aux);
+            // call listener to create proxy info for other entities different than server
+            if (change_aux->write_params.sample_identity().writer_guid().guidPrefix !=
+                    mp_PDPWriter->getGuid().guidPrefix)
+            {
+                edp_pub_listener->onNewCacheChangeAdded(edp->publications_reader_.first, change_aux);
+            }
         }
 
         // Create every reader change. If it is external creates it from Reader, 
@@ -1424,8 +1436,12 @@ bool PDPServer2::process_discovery_database_restore_()
             changes_map.insert(
                     std::make_pair(change_aux->instanceHandle, change_aux));
 
-            // call listener to create proxy info
-            edp_sub_listener->onNewCacheChangeAdded(edp->subscriptions_reader_.first, change_aux);
+            // call listener to create proxy info for other entities different than server
+            if (change_aux->write_params.sample_identity().writer_guid().guidPrefix !=
+                    mp_PDPWriter->getGuid().guidPrefix)
+            {
+                edp_sub_listener->onNewCacheChangeAdded(edp->subscriptions_reader_.first, change_aux);
+            }
         }
 
         // load database
