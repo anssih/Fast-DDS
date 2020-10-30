@@ -455,10 +455,6 @@ void SecurityManager::destroy()
 
         for (auto& dp_it : discovered_participants_)
         {
-            dp_it.second.stop_event();
-
-            auto auth_ptr = dp_it.second.get_auth();
-
             ParticipantCryptoHandle* participant_crypto_handle = dp_it.second.get_participant_crypto();
             if (participant_crypto_handle != nullptr)
             {
@@ -477,7 +473,7 @@ void SecurityManager::destroy()
                 authentication_plugin_->return_sharedsecret_handle(shared_secret_handle, exception);
             }
 
-            remove_discovered_participant_info(auth_ptr);
+            remove_discovered_participant_info(std::move(dp_it.second.get_auth()));
         }
 
         discovered_participants_.clear();
@@ -530,7 +526,7 @@ void SecurityManager::destroy()
 }
 
 void SecurityManager::remove_discovered_participant_info(
-        DiscoveredParticipantInfo::AuthUniquePtr& auth_ptr)
+        DiscoveredParticipantInfo::AuthUniquePtr&& auth_ptr)
 {
     SecurityException exception;
 
@@ -570,7 +566,7 @@ bool SecurityManager::restore_discovered_participant_info(
     }
     else
     {
-        remove_discovered_participant_info(auth_ptr);
+        remove_discovered_participant_info(std::move(auth_ptr));
     }
 
     return returned_value;
@@ -713,7 +709,6 @@ void SecurityManager::remove_participant(
     if (dp_it != discovered_participants_.end())
     {
         SecurityException exception;
-        auto auth_ptr = dp_it->second.get_auth();
 
         ParticipantCryptoHandle* participant_crypto_handle =
                 dp_it->second.get_participant_crypto();
@@ -735,7 +730,7 @@ void SecurityManager::remove_participant(
             authentication_plugin_->return_sharedsecret_handle(shared_secret_handle, exception);
         }
 
-        remove_discovered_participant_info(auth_ptr);
+        remove_discovered_participant_info(dp_it->second.get_auth());
 
         discovered_participants_.erase(dp_it);
     }

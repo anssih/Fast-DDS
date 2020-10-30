@@ -262,24 +262,14 @@ private:
                     const AuthenticationInfo& auth) = delete;
         };
 
-        struct EmptyDelete
-        {
-            void operator ()(
-                    AuthenticationInfo*)
-            {
-            }
-
-        };
-
     public:
 
-        typedef std::unique_ptr<AuthenticationInfo, EmptyDelete> AuthUniquePtr;
+        typedef std::unique_ptr<AuthenticationInfo> AuthUniquePtr;
 
         DiscoveredParticipantInfo(
                 AuthenticationStatus auth_status,
                 const ParticipantProxyData& participant_data)
-            : auth_(auth_status)
-            , auth_ptr_(&auth_)
+            : auth_(new AuthenticationInfo(auth_status))
             , shared_secret_handle_(nullptr)
             , permissions_handle_(nullptr)
             , participant_crypto_(nullptr)
@@ -290,7 +280,6 @@ private:
         DiscoveredParticipantInfo(
                 DiscoveredParticipantInfo&& info)
             : auth_(std::move(info.auth_))
-            , auth_ptr_(&auth_)
             , shared_secret_handle_(std::move(info.shared_secret_handle_))
             , permissions_handle_(std::move(info.permissions_handle_))
             , participant_crypto_(info.participant_crypto_)
@@ -300,14 +289,13 @@ private:
 
         AuthUniquePtr get_auth()
         {
-            return std::move(auth_ptr_);
+            return std::move(auth_);
         }
 
         void set_auth(
                 AuthUniquePtr& auth)
         {
-            assert(auth.get() == &auth_);
-            auth_ptr_ = std::move(auth);
+            auth_ = std::move(auth);
         }
 
         void set_shared_secret(
@@ -348,14 +336,6 @@ private:
             return participant_crypto_;
         }
 
-        void stop_event()
-        {
-            if (auth_.event_ != nullptr)
-            {
-                auth_.event_->cancel_timer();
-            }
-        }
-
         const ParticipantProxyData& participant_data() const
         {
             return participant_data_;
@@ -366,9 +346,7 @@ private:
         DiscoveredParticipantInfo(
                 const DiscoveredParticipantInfo& info) = delete;
 
-        AuthenticationInfo auth_;
-
-        AuthUniquePtr auth_ptr_;
+        AuthUniquePtr auth_;
 
         SharedSecretHandle* shared_secret_handle_;
 
@@ -437,7 +415,7 @@ private:
     void cancel_init();
 
     void remove_discovered_participant_info(
-            DiscoveredParticipantInfo::AuthUniquePtr& auth_ptr);
+            DiscoveredParticipantInfo::AuthUniquePtr&& auth_ptr);
 
     bool restore_discovered_participant_info(
             const GUID_t& remote_participant_key,
