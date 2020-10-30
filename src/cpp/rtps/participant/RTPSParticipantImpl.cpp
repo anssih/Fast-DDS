@@ -732,8 +732,12 @@ bool RTPSParticipantImpl::createReader(
             }
             else
             {
-                logError(RTPS_PARTICIPANT, "Cannot create reader persistence service. Persistence GUID not specified");
-                return false;
+                // TODO check if this breaks something
+                param.endpoint.persistence_guid = GUID_t(
+                    m_persistence_guid.guidPrefix,
+                    entityId);
+                // logError(RTPS_PARTICIPANT, "Cannot create reader persistence service. Persistence GUID not specified");
+                // return false;
             }
         }
 
