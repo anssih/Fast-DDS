@@ -128,6 +128,11 @@ public:
             const std::chrono::steady_clock::time_point&,
             std::unique_lock<RecursiveTimedMutex>&) override;
 
+    bool wait_for_acknowledgement(
+            CacheChange_t* change,
+            const std::chrono::steady_clock::time_point& max_blocking_time_point,
+            std::unique_lock<RecursiveTimedMutex>& lock) override;
+
     void add_flow_controller(
             std::unique_ptr<FlowController> controller) override;
 

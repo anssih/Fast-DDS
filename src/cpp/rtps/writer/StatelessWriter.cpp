@@ -365,6 +365,25 @@ bool StatelessWriter::try_remove_change(
     return mp_history->remove_min_change();
 }
 
+bool StatelessWriter::wait_for_acknowledgement(
+        CacheChange_t* change,
+        const std::chrono::steady_clock::time_point& max_blocking_time_point,
+        std::unique_lock<RecursiveTimedMutex>& lock)
+{
+    if (!isAsync())
+    {
+        return true;
+    }
+
+    // TODO(Miguel C): Wait on wait_for_acknowledement condition
+    auto change_is_unsent = [change](const ChangeForReader_t& unsent_change)
+            {
+                return change == unsent_change.getChange();
+            };
+
+    return unsent_changes_.end() == std::find_if(unsent_changes_.begin(), unsent_changes_.end(), change_is_unsent);
+}
+
 void StatelessWriter::update_unsent_changes(
         const SequenceNumber_t& seq_num,
         const FragmentNumber_t& frag_num)
@@ -408,6 +427,8 @@ void StatelessWriter::send_any_unsent_changes()
     }
 
     logInfo(RTPS_WRITER, "Finish sending unsent changes");
+
+    // TODO(Miguel C): Notify wait_for_acknowledement condition
 }
 
 void StatelessWriter::send_all_unsent_changes()
@@ -709,8 +730,8 @@ bool StatelessWriter::matched_reader_add(
 
     update_reader_info(true);
 
-    if ( (mp_history->getHistorySize() > 0) &&
-            (data.m_qos.m_durability.kind >= TRANSIENT_LOCAL_DURABILITY_QOS) )
+    if ((mp_history->getHistorySize() > 0) &&
+            (data.m_qos.m_durability.kind >= TRANSIENT_LOCAL_DURABILITY_QOS))
     {
         // Resend all changes
         unsent_changes_.assign(mp_history->changesBegin(), mp_history->changesEnd());

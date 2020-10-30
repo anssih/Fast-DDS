@@ -1717,6 +1717,15 @@ bool StatefulWriter::try_remove_change(
     return false;
 }
 
+bool StatefulWriter::wait_for_acknowledgement(
+        CacheChange_t* change,
+        const std::chrono::steady_clock::time_point& max_blocking_time_point,
+        std::unique_lock<RecursiveTimedMutex>& lock)
+{
+    // TODO(Miguel C): Wait on wait_for_acknowledement condition
+    return change->sequenceNumber < next_all_acked_notify_sequence_;
+}
+
 /*
  * PARAMETER_RELATED METHODS
  */
